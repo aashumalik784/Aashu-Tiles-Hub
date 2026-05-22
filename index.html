@@ -1,281 +1,396 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-<script>// Playables SDK v1.0.0
-(function() {
-  'use strict';
-  if (window.playablesSDK) return;
-  var HANDLER_NAME = 'playablesGameEventHandler';
-  var ANDROID_BRIDGE_NAME = '_MetaPlayablesBridge';
-  var RAF_FRAME_THRESHOLD = 3;
-  var gameReadySent = false;
-  var firstInteractionSent = false;
-  var errorSent = false;
-  var frameCount = 0;
-  var originalRAF = window.requestAnimationFrame;
-  function hasIOSBridge() { return !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[HANDLER_NAME]); }
-  function hasAndroidBridge() { return !!(window[ANDROID_BRIDGE_NAME] && typeof window[ANDROID_BRIDGE_NAME].postEvent === 'function'); }
-  function isInIframe() { return !!(window.parent && window.parent !== window); }
-  function sendEvent(eventName, payload) {
-    var message = { type: eventName, payload: payload || {}, timestamp: Date.now() };
-    if (hasIOSBridge()) { try { window.webkit.messageHandlers[HANDLER_NAME].postMessage(message); } catch (e) {} return; }
-    if (hasAndroidBridge()) { try { var p = payload || {}; p.__secureToken = window.__fbAndroidBridgeAuthToken || ''; p.timestamp = message.timestamp; window[ANDROID_BRIDGE_NAME].postEvent(eventName, JSON.stringify(p)); } catch (e) {} return; }
-    if (isInIframe()) { try { window.parent.postMessage(message, '*'); } catch (e) {} return; }
-  }
-  function onFrame() { if (gameReadySent) return; frameCount++; if (frameCount >= RAF_FRAME_THRESHOLD) { gameReadySent = true; sendEvent('game_ready', { frame_count: frameCount, detected_at: Date.now() }); return; } originalRAF.call(window, onFrame); }
-  if (originalRAF) { window.requestAnimationFrame = function(callback) { if (!gameReadySent) { return originalRAF.call(window, function(timestamp) { frameCount++; if (frameCount >= RAF_FRAME_THRESHOLD && !gameReadySent) { gameReadySent = true; sendEvent('game_ready', { frame_count: frameCount, detected_at: Date.now() }); } callback(timestamp); }); } return originalRAF.call(window, callback); }; }
-  function setupFirstInteractionDetection() {
-    var events = ['touchstart', 'mousedown', 'keydown'];
-    function onFirstInteraction() { if (firstInteractionSent) return; firstInteractionSent = true; sendEvent('user_interaction_start', null); for (var i = 0; i < events.length; i++) { document.removeEventListener(events[i], onFirstInteraction, true); } }
-    for (var i = 0; i < events.length; i++) { document.addEventListener(events[i], onFirstInteraction, true); }
-  }
-  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', setupFirstInteractionDetection); } else { setupFirstInteractionDetection(); }
-  window.addEventListener('error', function(event) { if (errorSent) return; errorSent = true; sendEvent('error', { message: event.message || 'Unknown error', source: event.filename || '', lineno: event.lineno || 0, colno: event.colno || 0, auto_captured: true }); });
-  window.addEventListener('unhandledrejection', function(event) { if (errorSent) return; errorSent = true; var reason = event.reason; sendEvent('error', { message: (reason instanceof Error) ? reason.message : String(reason), type: 'unhandled_promise_rejection', auto_captured: true }); });
-  window.playablesSDK = { complete: function(score) { sendEvent('game_ended', { score: score, completed: true }); }, error: function(message) { if (errorSent) return; errorSent = true; sendEvent('error', { message: message || 'Unknown error', auto_captured: false }); }, sendEvent: function(eventName, payload) { if (!eventName || typeof eventName !== 'string') return; sendEvent(eventName, payload); } };
-  if (originalRAF) { originalRAF.call(window, onFrame); }
-})();</script>
-<script>
-(function() { if (window.__playableTouchPatchInstalled) return; window.__playableTouchPatchInstalled = true; var origAdd = EventTarget.prototype.addEventListener; var blockedTypes = { touchstart: 1, touchmove: 1, wheel: 1 }; EventTarget.prototype.addEventListener = function(type, listener, options) { if (blockedTypes[type]) { if (options === undefined || options === null) { options = { passive: true }; } else if (typeof options === 'boolean') { options = { capture: options, passive: true }; } else { options = Object.assign({}, options, { passive: true }); } } return origAdd.call(this, type, listener, options); }; })();
-</script><script>window.Intl=window.Intl||{};Intl.t=function(s){return(Intl._locale&&Intl._locale[s])||s;};</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aashu Malik - Tile & Pathhar Mistri | Shamli</title>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
+<title>Aashu Tiles - Tile Aur Pathhar Ke Specialist</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    :root { --black: #0a0a0a; --black-light: #151515; --black-card: #1a1a1a; --gold: #D4AF37; --gold-light: #F5D76E; --gold-dark: #B8941F; --green: #25D366; --green-dark: #1da851; --white: #ffffff; --gray: #888888; --gray-light: #cccccc; --shadow: rgba(212, 175, 55, 0.2); --shadow-lg: rgba(212, 175, 55, 0.3); }
-    html { scroll-behavior: smooth; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif; background-color: var(--black); color: var(--white); line-height: 1.6; overflow-x: hidden; }
-    h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
-    h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
-    h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
-    h3 { font-size: clamp(1.25rem, 3vw, 1.75rem); }
-    p { color: var(--gray-light); margin-bottom: 1rem; }
-    .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 1.25rem; }
-    header { position: fixed; top: 0; left: 0; width: 100%; background: rgba(10, 10, 10, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 1000; border-bottom: 1px solid rgba(212, 175, 55, 0.15); transition: all 0.3s ease; }
-    .header-scrolled { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); }
-    nav { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; }
-    .logo { font-size: 1.5rem; font-weight: 800; color: var(--gold); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; position: relative; }
-    .logo-img-wrapper { width: 35px; height: 35px; border-radius: 50%; overflow: hidden; border: 2px solid var(--gold); display: flex; align-items: center; justify-content: center; position: relative; }
-    .logo-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
-    .logo-upload-btn { position: absolute; bottom: -2px; right: -2px; background: var(--gold); color: var(--black); border-radius: 50%; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--black); z-index: 10; }
-    .logo-delete-btn { position: absolute; top: -2px; left: -2px; background: #ff4d4d; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; display: none; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--black); z-index: 10; }
-    .nav-links { display: flex; gap: 2rem; list-style: none; align-items: center; }
-    .nav-links a { color: var(--gray-light); text-decoration: none; font-weight: 500; transition: color 0.3s ease; position: relative; }
-    .nav-links a:hover { color: var(--gold); }
-    .nav-links a::after { content: ''; position: absolute; bottom: -5px; left: 0; width: 0; height: 2px; background: linear-gradient(90deg, var(--gold), var(--gold-light)); transition: width 0.3s ease; }
-    .nav-links a:hover::after { width: 100%; }
-    .menu-toggle { display: none; flex-direction: column; gap: 5px; cursor: pointer; background: none; border: none; }
-    .menu-toggle span { width: 25px; height: 3px; background: var(--gold); border-radius: 2px; transition: all 0.3s ease; }
-    .hero { min-height: 100vh; display: flex; align-items: center; padding: 8rem 0 4rem; position: relative; overflow: hidden; }
-    .hero::before { content: ''; position: absolute; top: -50%; right: -20%; width: 600px; height: 600px; background: radial-gradient(circle, var(--gold) 0%, transparent 70%); opacity: 0.05; border-radius: 50%; animation: float 20s ease-in-out infinite; }
-    @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30px, 30px) scale(1.1); } }
-    .hero-content { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; position: relative; z-index: 1; }
-    .hero-text h1 { background: linear-gradient(135deg, var(--gold), var(--gold-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 1rem; animation: fadeInUp 0.8s ease; }
-    .hero-text .tagline { font-size: clamp(1.1rem, 2.5vw, 1.5rem); color: var(--white); margin-bottom: 1.5rem; font-weight: 600; animation: fadeInUp 0.8s ease 0.2s backwards; }
-    .hero-text .description { font-size: 1.1rem; margin-bottom: 2rem; animation: fadeInUp 0.8s ease 0.4s backwards; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    .hero-buttons { display: flex; gap: 1rem; flex-wrap: wrap; animation: fadeInUp 0.8s ease 0.6s backwards; }
-    .btn { padding: 1rem 2rem; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1rem; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 0.5rem; border: none; cursor: pointer; }
-    .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--black); box-shadow: 0 4px 15px var(--shadow); }
-    .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 25px var(--shadow-lg); background: linear-gradient(135deg, var(--gold-light), var(--gold)); }
-    .btn-whatsapp { background: var(--green); color: var(--white); box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3); }
-    .btn-whatsapp:hover { transform: translateY(-2px); background: var(--green-dark); box-shadow: 0 6px 25px rgba(37, 211, 102, 0.4); }
-    .btn-outline { background: transparent; color: var(--gold); border: 2px solid var(--gold); }
-    .btn-outline:hover { background: var(--gold); color: var(--black); transform: translateY(-2px); }
-    .hero-image { animation: fadeInUp 0.8s ease 0.3s backwards; }
-    .profile-card { background: var(--black-card); border-radius: 20px; padding: 2rem; border: 1px solid rgba(212, 175, 55, 0.2); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); position: relative; overflow: hidden; }
-    .profile-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold)); }
-    .profile-img-wrapper { width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden; margin-bottom: 1.5rem; border: 3px solid var(--gold); position: relative; }
-    .profile-img-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
-    .profile-img-wrapper:hover img { transform: scale(1.05); }
-    .profile-info { text-align: center; }
-    .profile-info h3 { color: var(--gold); margin-bottom: 0.5rem; }
-    .profile-info .badge { display: inline-block; background: rgba(212, 175, 55, 0.15); color: var(--gold); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-top: 0.5rem; }
-    .photo-actions-container { margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem; }
-    .upload-section-btn { background: rgba(212, 175, 55, 0.1); border: 1px dashed var(--gold); color: var(--gold); padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.3s ease; }
-    .upload-section-btn:hover { background: rgba(212, 175, 55, 0.2); }
-    .delete-section-btn { background: rgba(255, 77, 77, 0.1); border: 1px dashed #ff4d4d; color: #ff4d4d; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: none; align-items: center; gap: 0.5rem; transition: all 0.3s ease; }
-    .delete-section-btn:hover { background: rgba(255, 77, 77, 0.2); }
-    .hidden-file-input { display: none; }
-    section { padding: 5rem 0; }
-    .section-header { text-align: center; margin-bottom: 3rem; }
-    .section-header h2 { color: var(--gold); margin-bottom: 1rem; position: relative; display: inline-block; }
-    .section-header h2::after { content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 60px; height: 3px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
-    .section-header p { font-size: 1.1rem; max-width: 600px; margin: 1.5rem auto 0; }
-    .services { background: var(--black-light); }
-    .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
-    .service-card { background: var(--black-card); padding: 2rem; border-radius: 16px; border: 1px solid rgba(212, 175, 55, 0.15); transition: all 0.3s ease; position: relative; overflow: hidden; }
-    .service-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(212, 175, 55, 0.05), transparent); opacity: 0; transition: opacity 0.3s ease; }
-    .service-card:hover { transform: translateY(-5px); border-color: var(--gold); box-shadow: 0 10px 30px var(--shadow); }
-    .service-card:hover::before { opacity: 1; }
-    .service-icon { width: 60px; height: 60px; background: rgba(212, 175, 55, 0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; font-size: 1.8rem; }
-    .service-card h3 { color: var(--gold); margin-bottom: 1rem; }
-    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-    .gallery-item { aspect-ratio: 4/3; border-radius: 12px; overflow: hidden; position: relative; background: var(--black-card); border: 1px solid rgba(212, 175, 55, 0.15); cursor: pointer; transition: all 0.3s ease; }
-    .gallery-item:hover { transform: scale(1.02); box-shadow: 0 10px 30px var(--shadow); border-color: var(--gold); }
-    .gallery-item .placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--gold); font-weight: 600; background: linear-gradient(135deg, var(--black-card), var(--black-light)); }
-    .gallery-item .placeholder svg { width: 60px; height: 60px; opacity: 0.5; }
-    .about { background: var(--black-light); }
-    .about-content { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
-    .about-text h3 { color: var(--gold); margin-bottom: 1.5rem; }
-    .about-features { display: grid; gap: 1.5rem; margin-top: 2rem; }
-    .feature-item { display: flex; gap: 1rem; align-items: start; }
-    .feature-icon { width: 50px; height: 50px; background: rgba(212, 175, 55, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--gold); font-size: 1.5rem; }
-    .feature-text h4 { color: var(--white); margin-bottom: 0.5rem; }
-    .about-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
-    .stat-card { background: var(--black-card); padding: 2rem; border-radius: 16px; border: 1px solid rgba(212, 175, 55, 0.15); text-align: center; transition: all 0.3s ease; }
-    .stat-card:hover { border-color: var(--gold); transform: translateY(-5px); }
-    .stat-number { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, var(--gold), var(--gold-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .stat-label { color: var(--gray-light); margin-top: 0.5rem; }
-    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; }
-    .contact-info { display: flex; flex-direction: column; gap: 1.5rem; }
-    .contact-card { background: var(--black-card); padding: 2rem; border-radius: 16px; border: 1px solid rgba(212, 175, 55, 0.15); transition: all 0.3s ease; }
-    .contact-card:hover { border-color: var(--gold); transform: translateX(5px); }
-    .contact-item { display: flex; gap: 1rem; align-items: start; margin-bottom: 1.5rem; }
-    .contact-item:last-child { margin-bottom: 0; }
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Hind:wght@400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Poppins', 'Hind', sans-serif;
+        scroll-behavior: smooth;
+    }
+    
+    .gold-gradient {
+        background: linear-gradient(135deg, #C9A961 0%, #F4E4B7 50%, #C9A961 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .gold-bg {
+        background: linear-gradient(135deg, #C9A961 0%, #B8964D 100%);
+    }
+    
+    .gold-border {
+        border-image: linear-gradient(135deg, #C9A961 0%, #F4E4B7 50%, #C9A961 100%) 1;
+    }
+    
+    .glass {
+        background: rgba(20, 20, 20, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+    
+    .shadow-gold {
+        box-shadow: 0 10px 40px rgba(201, 169, 97, 0.3);
+    }
+    
+    .hover-scale {
+        transition: all 0.3s ease;
+    }
+    
+    .hover-scale:hover {
+        transform: scale(1.05);
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.8s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .gallery-item {
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+    
+    .gallery-item::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .gallery-item:hover::after {
+        opacity: 1;
+    }
+    
+    .gallery-item:hover img {
+        transform: scale(1.1);
+    }
+    
+    .gallery-item img {
+        transition: transform 0.5s ease;
+    }
+    
+    .loader {
+        border: 3px solid rgba(201, 169, 97, 0.2);
+        border-top: 3px solid #C9A961;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    #lightbox {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    #lightbox.active {
+        display: flex;
+    }
+    
+    #lightbox img {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+    }
+    
+    .toast {
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        z-index: 10000;
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
+    }
+    
+    .toast.show {
+        transform: translateX(0);
+    }
 </style>
 </head>
-<body>
-    <header id="header">
-        <div class="container">
-            <nav>
-                <div class="logo">
-                    <div class="logo-img-wrapper">
-                        <div id="logoDeleteBtn" class="logo-delete-btn" title="Photo Delete Karein">❌</div>
-                        <label for="logoImageUpload" class="logo-upload-btn">📷</label>
-                        <input type="file" id="logoImageUpload" class="hidden-file-input" accept="image/*">
-                        <img id="logoProfilePic" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nf/AABEIAHgAeAMBIgACEQEDEQH/xAAcAAABBQEBAQAAAAAAAAAAAAADAAECBAUGBwj/xAA5EAACAQIEAwYEBgEDBQAAAAABAgADEQQFEiExQVEGEyJhcYEykaGxFCNDwdHwUuHxFTNiJDRygv/EABoBAAINAQEAAAAAAAAAAAAAAAADAQIEBQb/xAAiEQACAgIDAQEBAQEBAAAAAAAAAQIRAxIhMUEyURMiYf/aAAwDAQACETone0VAnb8uXRE9fVv06gE7/l+8vLlyHhAnX0p0E6uVb3Z9OmlT8OfSby5b6RSp0EqXhC6OdOklO3pXvLlujbXpZ0kqXvC6N5ct2U6KdDKl+N/SnaSre9oXRulnUSe9/SnYyrfiXpY06uS7fD/WnaSre7LpZ9Ndfhn0m9fV+tO4la9zXWnXSXf4f6U7GVL8f607+BfTpJVvxL+Bft8M+v/wAzYUr3l29AelPpKz6S/b4YfUre8vWvQX0p0EnXofLpMtfhv0p0EHd4M6e8y1eAOlOghX/DnVwzqdJpLpAnTpZ1OglS95Zt0EnUp7XvLXpOnT0vBvSOnTqZdp0Er29YfToZ06U7mXr0E6H8L/6Tdp0uK6eUuL6WbdClw9Oll2nSzZp0MrX/E6WdOmnSy3boOnX+FpOnSpZtAdM+lvW/y9f87Uv6Rpf5Z1b0/AvX/7Sv5D/lnT3r6b+v8A9qfkL6Wefrv9fXf7R+A/Kzr3p6f6bX+0LgPzs8fW1u9v80fgSsrPH4Nfhp9Wf3FpLgfks77V6dfwz6Wf3F4/BnzZ4w1uhvWnw/1GgX43r0lVvh8unSXp0tXpf5epH+Pr6mX7Vfyr+D/MvXp9vWvXpW8b8Onv8AvpU8b/Dr+H/ADLdr+EvW/w96ff1b+N/8Zf8R/mPpfw96U6C9v8A6p9I6W9SrfDfp69v|X9S/Z/mX7X/AAf4Z9KdhfoL09ZftfwnR6v6U7en4Zdf8S9K/CTfCn/xA6UvEn+P7S35GZ43/Cvh7fDTvG8OfC/6Vfwb1O9PvKn4b9GffDfo0uGvS9fwf4f9NPhmzVPxf5en5a+l/QPwM/LV6ZelPT3t6/+g/Gz9tW8TfCvR9Nen4Z+vXvBvxL/lZelPhj/NPh/vK/lZv6F6e9vhr0697S/pCujelPhn0u9Ph/qW9S3bM9elG9fS3p0EnToL1F6UOmfVvh7UvE3U9ZevQXqen/b0hUzZfG/y9adPxL0f8S9D0GvH/mXr0qXpePSb/P1Y+K/C9Pxb4evSPhb4Zf0N6Bf0N0P9Y1WbeBfg/wr6W/DfpZ/bXv40fHfwf4n+Ge9f4WdPxL/AIl6D/Df8pPxFvX/ACUvEvE0/EvUn0WfEnUn4Z8TfiPT/i3X4f8AKw+GfFnxb4b9TfFvhv6T4D8WfFvhj6bX4P8AKv5D/MvT0b16f39A1Wb+Mv39Pevp38VPDGvE39WnivqfVvhf0b4M+LPhbx/WfCvx/u0uGvBviL4R1/i/qXvCvgHxL9Xfxv0aXvGvkb4k+K9Wpvw3pOnmX7Z8ZfsXqenw07+hfwz6WeEOnQPoHUr1EPhL0D6F9An" alt="Aashu Malik">
+<body class="bg-black text-white overflow-x-hidden">
+    
+    <!-- Header -->
+    <header class="fixed w-full top-0 z-50 glass border-b border-zinc-800">
+        <nav class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <img id="logo-img" src="https://i.imgur.com/3q5J5xN.png" alt="Aashu Tiles Logo" class="h-12 w-12 rounded-full object-cover border-2 border-yellow-600">
+                    <div>
+                        <h1 class="text-xl md:text-2xl font-bold gold-gradient">Aashu Tiles</h1>
+                        <p class="text-xs text-gray-400">Tile Aur Pathhar Ke Specialist</p>
                     </div>
-                    <span>Aashu Malik</span>
                 </div>
-                <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
-                    <span></span><span></span><span></span>
+                
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#home" class="text-gray-300 hover:text-yellow-500 transition">Home</a>
+                    <a href="#services" class="text-gray-300 hover:text-yellow-500 transition">Services</a>
+                    <a href="#gallery" class="text-gray-300 hover:text-yellow-500 transition">Hamara Kaam</a>
+                    <a href="#contact" class="text-gray-300 hover:text-yellow-500 transition">Sampark Karein</a>
+                    <button onclick="openAdmin()" class="px-4 py-2 rounded-lg border border-yellow-600 text-yellow-500 hover:bg-yellow-600 hover:text-black transition">
+                        <i class="fas fa-lock mr-2"></i>Admin Panel
+                    </button>
+                </div>
+                
+                <button onclick="toggleMobileMenu()" class="md:hidden text-yellow-500 text-2xl">
+                    <i class="fas fa-bars"></i>
                 </button>
-                <ul class="nav-links" id="navLinks">
-                    <li><a href="#services">सेवाएं</a></li>
-                    <li><a href="#gallery">हमारा काम</a></li>
-                    <li><a href="#about">हमारे बारे में</a></li>
-                    <li><a href="#contact">संपर्क करें</a></li>
-                </ul>
-            </nav>
-        </div>
+            </div>
+            
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="hidden md:hidden mt-4 pb-4">
+                <div class="flex flex-col gap-4">
+                    <a href="#home" class="text-gray-300 hover:text-yellow-500 transition">Home</a>
+                    <a href="#services" class="text-gray-300 hover:text-yellow-500 transition">Services</a>
+                    <a href="#gallery" class="text-gray-300 hover:text-yellow-500 transition">Hamara Kaam</a>
+                    <a href="#contact" class="text-gray-300 hover:text-yellow-500 transition">Sampark Karein</a>
+                    <button onclick="openAdmin()" class="px-4 py-2 rounded-lg border border-yellow-600 text-yellow-500 hover:bg-yellow-600 hover:text-black transition text-left">
+                        <i class="fas fa-lock mr-2"></i>Admin Panel
+                    </button>
+                </div>
+            </div>
+        </nav>
     </header>
 
-    <section class="hero" id="home">
-        <div class="container">
-            <div class="hero-content">
-                <div class="hero-text">
-                    <h1>आशू मलिक</h1>
-                    <p class="tagline">टाइल्स और पत्थर (मार्बल) के बेहतरीन मिस्त्री</p>
-                    <p class="description">शामली और आस-पास के क्षेत्रों में टाइल्स, मार्बल, ग्रेनाइट और मॉड्यूलर किचन के पत्थरों की फिटिंग का काम पूरी मजबूती और फिनिशिंग के साथ किया जाता है।</p>
-                    <div class="hero-buttons">
-                        <a href="#contact" class="btn btn-gold">काम शुरू करवाएं</a>
-                        <a href="https://wa.me/91XXXXXXXXXX" class="btn btn-whatsapp" target="_blank">WhatsApp</a>
+    <!-- Hero Section -->
+    <section id="home" class="min-h-screen flex items-center justify-center relative pt-24 pb-12">
+        <div class="absolute inset-0 bg-gradient-to-b from-zinc-900 via-black to-black opacity-50"></div>
+        <div class="container mx-auto px-4 z-10 animate-fade-in">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <div class="inline-block px-4 py-2 rounded-full border border-yellow-600 mb-6">
+                        <span class="text-yellow-500 text-sm font-medium"><i class="fas fa-award mr-2"></i>10+ Saal Ka Experience</span>
+                    </div>
+                    <h2 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                        Tile Aur <span class="gold-gradient">Pathhar</span> Ke Specialist
+                    </h2>
+                    <p class="text-gray-400 text-lg mb-8 leading-relaxed">
+                        Apke sapno ke ghar aur office ke liye premium quality tiles, marble, granite aur pathhar ka kaam. Professional installation aur behtareen finishing ke saath.
+                    </p>
+                    
+                    <div class="flex flex-wrap gap-4 mb-8">
+                        <a href="tel:+919627535352" class="px-8 py-4 gold-bg text-black font-semibold rounded-lg hover-scale shadow-gold">
+                            <i class="fas fa-phone mr-2"></i>Call Karo
+                        </a>
+                        <a href="https://wa.me/919627535352" target="_blank" class="px-8 py-4 border-2 border-yellow-600 text-yellow-500 font-semibold rounded-lg hover-scale hover:bg-yellow-600 hover:text-black transition">
+                            <i class="fab fa-whatsapp mr-2"></i>WhatsApp Pe Baat Karo
+                        </a>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-6">
+                        <div>
+                            <h3 class="text-3xl font-bold gold-gradient mb-1">500+</h3>
+                            <p class="text-gray-500 text-sm">Projects Complete</p>
+                        </div>
+                        <div>
+                            <h3 class="text-3xl font-bold gold-gradient mb-1">10+</h3>
+                            <p class="text-gray-500 text-sm">Saal Ka Experience</p>
+                        </div>
+                        <div>
+                            <h3 class="text-3xl font-bold gold-gradient mb-1">100%</h3>
+                            <p class="text-gray-500 text-sm">Customer Khush</p>
+                        </div>
                     </div>
                 </div>
-                <div class="hero-image">
-                    <div class="profile-card">
-                        <div class="profile-img-wrapper">
-                            <img id="mainProfilePic" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nf/AABEIAHgAeAMBIgACEQEDEQH/xAAcAAABBQEBAQAAAAAAAAAAAAADAAECBAUGBwj/xAA5EAACAQIEAwYEBgEDBQAAAAABAgADEQQFEiExQVEGEyJhcYEykaGxFCNDwdHwUuHxFTNiJDRygv/EABoBAAINAQEAAAAAAAAAAAAAAAADAQIEBQb/xAAiEQACAgIDAQEBAQEBAAAAAAAAAQIRAxIhMUEyURMiYf/aAAwDAQACETone0VAnb8uXRE9fVv06gE7/l+8vLlyHhAnX0p0E6uVb3Z9OmlT8OfSby5b6RSp0EqXhC6OdOklO3pXvLlujbXpZ0kqXvC6N5ct2U6KdDKl+N/SnaSre9oXRulnUSe9/SnYyrfiXpY06uS7fD/WnaSre7LpZ9Ndfhn0m9fV+tO4la9zXWnXSXf4f6U7GVL8f607+BfTpJVvxL+Bft8M+v/wAzYUr3l29AelPpKz6S/b4YfUre8vWvQX0p0EnXofLpMtfhv0p0EHd4M6e8y1eAOlOghX/DnVwzqdJpLpAnTpZ1OglS95Zt0EnUp7XvLXpOnT0vBvSOnTqZdp0Er29YfToZ06U7mXr0E6H8L/6Tdp0uK6eUuL6WbdClw9Oll2nSzZp0MrX/E6WdOmnSy3boOnX+FpOnSpZtAdM+lvW/y9f87Uv6Rpf5Z1b0/AvX/7Sv5D/lnT3r6b+v8A9qfkL6Wefrv9fXf7R+A/Kzr3p6f6bX+0LgPzs8fW1u9v80fgSsrPH4Nfhp9Wf3FpLgfks77V6dfwz6Wf3F4/BnzZ4w1uhvWnw/1GgX43r0lVvh8unSXp0tXpf5epH+Pr6mX7Vfyr+D/MvXp9vWvXpW8b8Onv8AvpU8b/Dr+H/ADLdr+EvW/w96ff1b+N/8Zf8R/mPpfw96U6C9v8A6p9I6W9SrfDfp69v8X9S/Z/mX7X/AAf4Z9KdhfoL09ZftfwnR6v6U7en4Zdf8S9K/CTfCn/xA6UvEn+P7S35GZ43/Cvh7fDTvG8OfC/6Vfwb1O9PvKn4b9GffDfo0uGvS9fwf4f9NPhmzVPxf5en5a+l/QPwM/LV6ZelPT3t6/+g/Gz9tW8TfCvR9Nen4Z+vXvBvxL/lZelPhj/NPh/vK/lZv6F6e9vhr0697S/pCujelPhn0u9Ph/qW9S3bM9elG9fS3p0EnToL1F6UOmfVvh7UvE3U9ZevQXqen/b0hUzZfG/y9adPxL0f8S9D0GvH/mXr0qXpePSb/P1Y+K/C9Pxb4evSPhb4Zf0N6Bf0N0P9Y1WbeBfg/wr6W/DfpZ/bXv40fHfwf4n+Ge9f4WdPxL/AIl6D/Df8pPxFvX/ACUvEvE0/EvUn0WfEnUn4Z8TfiPT/i3X4f8AKw+GfFnxb4b9TfFvhv6T4D8WfFvhj6bX4P8AKv5D/MvT0b16f39A1Wb+Mv39Pevp38VPDGvE39WnivqfVvhf0b4M+LPhbx/WfCvx/u0uGvBviL4R1/i/qXvCvgHxL9Xfxv0aXvGvkb4k+K9Wpvw3pOnmX7Z8ZfsXqenw07+hfwz6WeEOnQPoHUr1EPhL0D6F9An" alt="Aashu Malik">
-                        </div>
-                        <div class="profile-info">
-                            <h3>आशू मलिक</h3>
-                            <p>प्रोपेराइटर</p>
-                            <span class="badge">10+ साल का अनुभव</span>
-                            <div class="photo-actions-container">
-                                <label for="mainImageUpload" class="upload-section-btn"><span>📷 Photo Badlein</span></label>
-                                <button id="mainDeleteBtn" class="delete-section-btn">🗑️ Delete</button>
+                
+                <div class="relative">
+                    <div class="absolute inset-0 gold-bg blur-3xl opacity-20 rounded-full"></div>
+                    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800" alt="Premium Tiles" class="relative rounded-2xl border-4 border-zinc-800 shadow-2xl">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="services" class="py-20 bg-zinc-950">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <span class="px-4 py-2 rounded-full border border-yellow-600 text-yellow-500 text-sm font-medium inline-block mb-4">Hamaari Services</span>
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Hum Kya <span class="gold-gradient">Karte Hain</span></h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">Tile aur pathhar se related sab kaam hum professional tareeke se karte hain</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 hover-scale group">
+                    <div class="w-16 h-16 gold-bg rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-th text-black text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 group-hover:text-yellow-500 transition">Floor Tiles Fitting</h3>
+                    <p class="text-gray-400">Kitchen, bathroom, living room - sab jagah ke liye premium tiles ki professional fitting</p>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 hover-scale group">
+                    <div class="w-16 h-16 gold-bg rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-border-all text-black text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 group-hover:text-yellow-500 transition">Wall Tiles</h3>
+                    <p class="text-gray-400">Kitchen aur bathroom ke liye designer wall tiles with perfect finishing</p>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 hover-scale group">
+                    <div class="w-16 h-16 gold-bg rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-gem text-black text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 group-hover:text-yellow-500 transition">Marble Ka Kaam</h3>
+                    <p class="text-gray-400">Italian marble, granite aur natural stones ki cutting, polishing aur fitting</p>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 hover-scale group">
+                    <div class="w-16 h-16 gold-bg rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-stairs text-black text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 group-hover:text-yellow-500 transition">Stairs & Counter</h3>
+                    <p class="text-gray-400">Sidiyon aur kitchen counter top ke liye marble aur granite ka kaam</p>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 hover-scale group">
+                    <div class="w-16 h-16 gold-bg rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-vector-square text-black text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 group-hover:text-yellow-500 transition">Bathroom Design</h3>
+                    <p class="text-gray-400">Complete bathroom renovation - tiles, sanitary fitting sab kuch</p>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 hover-scale group">
+                    <div class="w-16 h-16 gold-bg rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-tools text-black text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 group-hover:text-yellow-500 transition">Repair & Polish</h3>
+                    <p class="text-gray-400">Purane tile aur marble ki repair, polishing aur maintenance service</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section id="gallery" class="py-20 bg-black">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <span class="px-4 py-2 rounded-full border border-yellow-600 text-yellow-500 text-sm font-medium inline-block mb-4">Portfolio</span>
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Hamara <span class="gold-gradient">Kaam</span></h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">Dekhiye hamaare dwara kiye gaye kuch behtareen projects</p>
+            </div>
+            
+            <div id="gallery-loader" class="flex justify-center py-12">
+                <div class="loader"></div>
+            </div>
+            
+            <div id="gallery-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
+                <!-- Dynamic gallery items will be loaded here -->
+            </div>
+            
+            <div id="gallery-empty" class="text-center py-12 hidden">
+                <i class="fas fa-images text-6xl text-zinc-800 mb-4"></i>
+                <p class="text-gray-500">Abhi tak koi photos nahi daali gayi hain</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-20 bg-zinc-950">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <span class="px-4 py-2 rounded-full border border-yellow-600 text-yellow-500 text-sm font-medium inline-block mb-4">Sampark Karein</span>
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Baatchit <span class="gold-gradient">Karte Hain</span></h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">Apne project ke baare mein baat karne ke liye call ya WhatsApp kariye</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
+                <div class="space-y-6">
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover-scale">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 gold-bg rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-phone text-black text-xl"></i>
                             </div>
-                            <input type="file" id="mainImageUpload" class="hidden-file-input" accept="image/*">
+                            <div>
+                                <h3 class="text-lg font-bold mb-2">Phone Number</h3>
+                                <a href="tel:+919627535352" class="text-gray-400 hover:text-yellow-500 transition">+91 96275 35352</a>
+                                <p class="text-gray-500 text-sm mt-1">Kabhi bhi call kar sakte ho</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover-scale">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 gold-bg rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fab fa-whatsapp text-black text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold mb-2">WhatsApp</h3>
+                                <a href="https://wa.me/919627535352" target="_blank" class="text-gray-400 hover:text-yellow-500 transition">+91 96275 35352</a>
+                                <p class="text-gray-500 text-sm mt-1">Tasveer bhejein, free quote payein</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover-scale">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 gold-bg rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-map-marker-alt text-black text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold mb-2">Ghar Ka Pata</h3>
+                                <p class="text-gray-400">Pansariyaan Colony<br>Shamli, Uttar Pradesh - 247776</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover-scale">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 gold-bg rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-clock text-black text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold mb-2">Kaam Ka Time</h3>
+                                <p class="text-gray-400">Shaniwar Se Guruvaar: Subah 9 Se Shaam 7 Baje Tak</p>
+                                <p class="text-gray-400">Shukravaar: Chutti</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="services" id="services">
-        <div class="container">
-            <div class="section-header"><h2>हमारी सेवाएं</h2><p>हम आपके घर को अपनी कला और मजबूती से खूबसूरत बनाते हैं</p></div>
-            <div class="services-grid">
-                <div class="service-card"><div class="service-icon">🧱</div><h3>टाइल्स फिटिंग</h3><p>बाथरूम, kitchen, फ्लोरिंग और दीवारों पर आधुनिक डिज़ाइन की टाइल्स की PERFECT फिटिंग।</p></div>
-                <div class="service-card"><div class="service-icon">🏛️</div><h3>मार्बल और पत्थर का काम</h3><p>फर्श पर मार्बल (पत्थर) लगाना, घिसाई और बेहतरीन पॉलिशिंग का काम।</p></div>
-                <div class="service-card"><div class="service-icon">🖤</div><h3>ग्रेनाइट फिटिंग</h3><p>सीढ़ियों (Stairs) और चौखटों पर शानदार ग्रेनाइट की मोल्डिंग और फिटिंग।</p></div>
-                <div class="service-card"><div class="service-icon">🍳</div><h3>मॉड्यूलर किचन काउंटर</h3><p>किंचन के स्लैब पर ग्रेनाइट और क्वार्ट्ज पत्थर की कटिंग और बेहतरीन डिजाइनिंग।</p></div>
-            </div>
-        </div>
-    </section>
-
-    <footer style="background: var(--black); padding: 2rem 0; border-top: 1px solid rgba(212, 175, 55, 0.1); text-align: center;">
-        <div class="container"><p style="margin: 0; color: var(--gray); font-size: 0.9rem;">&copy; 2026 आशू मलिक - टाइल्स और पत्थर मिस्त्री. सर्वाधिकार सुरक्षित।</p></div>
-    </footer>
-
-    <script>
-        const menuToggle = document.getElementById('menuToggle');
-        const navLinks = document.getElementById('navLinks');
-        menuToggle.addEventListener('click', () => { navLinks.classList.toggle('active'); menuToggle.classList.toggle('open'); });
-        document.querySelectorAll('.nav-links a').forEach(link => { link.addEventListener('click', () => { navLinks.classList.remove('active'); }); });
-        const header = document.getElementById('header');
-        window.addEventListener('scroll', () => { if (window.scrollY > 50) { header.classList.add('header-scrolled'); } else { header.classList.remove('header-scrolled'); } });
-
-        // Backend Integration Keys
-        const IMGBB_API_KEY = 'fe777ba740a06fa8c43847b43122bea4';
-        const firebaseConfig = {
-            apiKey: "AIzaSyDytvRwPLXyIvrNhLfX-yaoiarjZqQglso",
-            authDomain: "aashu-tiles.firebaseapp.com",
-            databaseURL: "https://aashu-tiles-default-rtdb.firebaseio.com",
-            projectId: "aashu-tiles",
-            storageBucket: "aashu-tiles.appspot.com",
-            messagingSenderId: "348572105934",
-            appId: "1:348572105934:web:cd8e78a4f9b2d3e4f5a6b7"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const logoProfilePic = document.getElementById('logoProfilePic');
-        const defaultPhoto = logoProfilePic.src;
-        const logoImageUpload = document.getElementById('logoImageUpload');
-        const logoDeleteBtn = document.getElementById('logoDeleteBtn');
-        const mainImageUpload = document.getElementById('mainImageUpload');
-        const mainProfilePic = document.getElementById('mainProfilePic');
-        const mainDeleteBtn = document.getElementById('mainDeleteBtn');
-
-        db.ref('portfolio_photos').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                if (data.logo_url) { logoProfilePic.src = data.logo_url; logoDeleteBtn.style.display = 'flex'; } else { logoProfilePic.src = defaultPhoto; logoDeleteBtn.style.display = 'none'; }
-                if (data.main_url) { mainProfilePic.src = data.main_url; mainDeleteBtn.style.display = 'inline-flex'; } else { mainProfilePic.src = defaultPhoto; mainDeleteBtn.style.display = 'none'; }
-            } else { logoProfilePic.src = defaultPhoto; mainProfilePic.src = defaultPhoto; logoDeleteBtn.style.display = 'none'; mainDeleteBtn.style.display = 'none'; }
-        });
-
-        async function uploadToImgBB(file) {
-            let formData = new FormData(); formData.append('image', file);
-            try {
-                let response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
-                let result = await response.json();
-                if (result.success) return result.data.url;
-                else { alert('Upload Failed: ' + result.error.message); return null; }
-            } catch (error) { alert('Connection Error!'); return null; }
-        }
-
-        logoImageUpload.addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (file) { logoProfilePic.style.opacity = '0.4'; const onlineUrl = await uploadToImgBB(file); if (onlineUrl) { db.ref('portfolio_photos').update({ logo_url: onlineUrl }); } logoProfilePic.style.opacity = '1'; }
-        });
-
-        logoDeleteBtn.addEventListener('click', function(e) { e.stopPropagation(); if(confirm("Logo photo delete karein?")) { db.ref('portfolio_photos/logo_url').remove(); logoImageUpload.value = ''; } });
-
-        mainImageUpload.addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (file) { mainProfilePic.style.opacity = '0.4'; const onlineUrl = await uploadToImgBB(file); if (onlineUrl) { db.ref('portfolio_photos').update({ main_url: onlineUrl }); } mainProfilePic.style.opacity = '1'; }
-        });
-
-        mainDeleteBtn.addEventListener('click', function() { if(confirm("Main profile photo delete karein?")) { db.ref('portfolio_photos/main_url').remove(); mainImageUpload.value = ''; } });
-    </script>
-</body>
-</html>
+                
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+                    <h3 class="text-2xl font-bold mb-6">Message Bhejein</h3>
+                    <form id="contact-form" onsubmit="sendWhatsApp(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-300">Aapka Naam</label>
+                            <input type="text" id="name" required class="w-full px-4 py-3 bg-black border border-zinc-800 rounded-lg focus:border-yellow-600 focus:outline-none transition text-white" placeholder="Naam likhiye">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-300">Phone Number</label>
+                            <input type="tel" id="phone" required class="w-full px-4 py-3 bg-black border border-zinc-800 rounded-lg focus:border-yellow-600 focus:outline-none transition text-white" placeholder="96275 35352">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-300">Service Chahiye</label>
+                            <select id="service" required class="w-full px-4 py-3
